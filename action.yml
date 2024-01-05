@@ -1,0 +1,66 @@
+name: release-next
+description: 'Action for tracking and incrementing project release versions'
+author: 'sndnv'
+branding:
+  color: orange
+  icon: tag
+
+inputs:
+  next_version:
+    description: 'Next release version (see README for more info)'
+    required: true
+    default: patch # one of [patch, minor, major, <specific version>]
+  target_branch:
+    description: 'The branch to be checked out and updated with the new versions'
+    required: true
+    default: main
+  git_user_name:
+    description: 'Git user name for the version update commits'
+    required: true
+    default: ${{github.actor}}
+  git_user_email:
+    description: 'Git user email for the version update commits'
+    required: true
+    default: ${{github.actor}}@users.noreply.github.com
+  release_key:
+    description: 'Private SSH key associated with a write-enabled deploy key for the repo (see README for more info)'
+    required: true
+  version_files_json:
+    description: 'Version files and regex configuration, as a JSON map (see README for more info)'
+    required: true
+  push_enabled:
+    description: 'For testing purposes; enables/disables pushing of the changes made to the target branch'
+    required: true
+    default: 'yes'
+
+runs:
+  using: composite
+
+  steps:
+    - uses: actions/checkout@v4
+      with:
+        ssh-key: ${{ inputs.release_key }}
+        ref: ${{ inputs.target_branch }}
+
+    - name: Setup Python 3
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+
+    - name: Release project
+      env:
+        NEXT_VERSION: ${{ inputs.next_version }}
+        VERSION_FILES_JSON: ${{ inputs.version_files_json }}
+      shell: bash
+      run: |
+        pip install semver
+        git config --global user.name ${{ inputs.git_user_name }}
+        git config --global user.email ${{ inputs.git_user_email }}
+        ${{ github.action_path }}/release.py --next $NEXT_VERSION --version-files "$VERSION_FILES_JSON"
+
+    - name: Push changes
+      if: ${{ inputs.push_enabled == 'yes' }}
+      shell: bash
+      run: |
+        git push
+        git push --tags

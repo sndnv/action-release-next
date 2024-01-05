@@ -1,0 +1,44 @@
+name: Main
+
+on: [pull_request, push]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        next_version: ['patch', 'minor', 'major']
+        include:
+          - expected_release_version: '1.2.3'
+            expected_next_version: '1.2.4-SNAPSHOT'
+            next_version: 'patch'
+          - expected_release_version: '1.3.0'
+            expected_next_version: '1.3.1-SNAPSHOT'
+            next_version: 'minor'
+          - expected_release_version: '2.0.0'
+            expected_next_version: '2.0.1-SNAPSHOT'
+            next_version: 'major'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run action (${{ matrix.next_version }})
+        uses: ./
+        with:
+          next_version: ${{ matrix.next_version }}
+          target_branch: ${{ github.ref }}
+          release_key: ''
+          version_files_json: |
+            {
+              "test/data/version-file-1.txt": "^version=\"(\\d+\\.\\d+\\.\\d+.*)\"$",
+              "test/data/version-file-2.txt": "\\s*version: '(\\d+\\.\\d+\\.\\d+.*)'"
+            }
+          push_enabled: 'no'
+
+      - name: Validate action results (${{ matrix.next_version }})
+        run: |
+          git log -n 1 --oneline | grep 'Updating version to ${{ matrix.expected_next_version }}'
+          git log -n 1 --skip 1 --oneline | grep 'Updating version to ${{ matrix.expected_release_version }}'
+          cat test/data/version-file-1.txt | grep '${{ matrix.expected_next_version }}'
+          cat test/data/version-file-2.txt | grep '${{ matrix.expected_next_version }}'
