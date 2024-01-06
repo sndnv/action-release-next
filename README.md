@@ -85,8 +85,6 @@ jobs:
     if: github.ref == 'refs/heads/main' # only allow running on the main branch
 
     steps:
-      - uses: actions/checkout@v4
-
       - uses: sndnv/action-release-next@v1
         with:
           next_version: ${{ inputs.next_version }}
